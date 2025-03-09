@@ -1,0 +1,38 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_NAME=yai_db
+      - DATABASE_USER=yai_user
+      - DATABASE_PASSWORD=yai_password
+      - DATABASE_PORT=5432
+    depends_on:
+      - db
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+
+  db:
+    image: postgres:17
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=yai_db
+      - POSTGRES_USER=yai_user
+      - POSTGRES_PASSWORD=yai_password
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    driver: bridge

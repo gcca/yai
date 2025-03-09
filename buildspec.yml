@@ -1,0 +1,26 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - pip install --upgrade pip
+      - pip install .
+  build:
+    commands:
+      - python manage.py collectstatic --noinput
+  post_build:
+    commands:
+      - echo "Build completed successfully"
+      - aws deploy create-deployment --application-name yai-app --deployment-group-name yai-app-group-deploy --s3-location bucket=yai-building,key=yai.zip,bundleType=zip
+
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: no
+  exclude:
+    - '.git'
+    - '__pycache__'
+    - '*.pyc'
+    - 'venv'
