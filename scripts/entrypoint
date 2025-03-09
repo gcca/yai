@@ -1,0 +1,14 @@
+#!/bin/bash
+
+NUM_WORKERS=${NUM_WORKERS:-2}
+
+if ! [[ "$NUM_WORKERS" =~ ^[0-9]+$ ]] || [ "$NUM_WORKERS" -lt 1 ]; then
+    echo "Error: NUM_WORKERS debe ser un número entero positivo. Por defecto: 2."
+    NUM_WORKERS=2
+fi
+
+exec /venv/bin/gunicorn yai.asgi:application \
+    -w"$NUM_WORKERS" \
+    -kuvicorn.workers.UvicornWorker \
+    -b0.0.0.0:8000 \
+    --log-level info \

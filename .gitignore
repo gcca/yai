@@ -1,0 +1,15 @@
+.cache
+build/
+*.json
+__pycache__/
+db.sqlite3
+
+venv/
+*.pyc
+*.so
+*.o
+static/
+dist/
+*.egg-info/
+
+yai_ext/xai.*

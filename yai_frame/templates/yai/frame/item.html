@@ -1,0 +1,6 @@
+{% for question, answer in history %}
+<div class="mb-3">
+  <div class="fw-bold">Q: {{ question }}</div>
+  <div>{{ answer|safe }}</div>
+</div>
+{% endfor %}

@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "yai"
+version = "0.1.0"
+description = "yAI Components and Web services"
+authors = ["gcca <git@gcca.dev>"]
+license = "GPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+django = "^5.1.7"
+gunicorn = "^23.0.0"
+uvicorn = "^0.34.0"
+markdown = "^3.7"
+
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^4.1.0"
+coverage = "^7.6.12"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
