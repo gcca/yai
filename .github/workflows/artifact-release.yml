@@ -61,7 +61,8 @@ jobs:
           yai \
           yai_daily \
           yai_frame \
-          yai_signin \
+          yai_front \
+          scripts/yai.service \
           static \
           pyproject.toml
 

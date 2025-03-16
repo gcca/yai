@@ -5,10 +5,10 @@ from django.views.generic import TemplateView
 
 
 class IndexView(LoginView):
-    template_name = "yai/signin/index.html"
-    success_url = reverse_lazy("yai_signin:dashboard")
+    template_name = "yai/front/index.html"
+    success_url = reverse_lazy("yai_front:dashboard")
     redirect_authenticated_user = True
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    template_name = "yai/signin/dashboard.html"
+    template_name = "yai/front/dashboard.html"

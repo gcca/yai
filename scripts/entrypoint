@@ -7,6 +7,8 @@ if ! [[ "$NUM_WORKERS" =~ ^[0-9]+$ ]] || [ "$NUM_WORKERS" -lt 1 ]; then
     NUM_WORKERS=2
 fi
 
+export LD_LIBRARY_PATH=/boost/lib
+
 exec /venv/bin/gunicorn yai.asgi:application \
     -w"$NUM_WORKERS" \
     -kuvicorn.workers.UvicornWorker \

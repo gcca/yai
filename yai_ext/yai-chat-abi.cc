@@ -1,6 +1,8 @@
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <sstream>
+
 #include <xai.hpp>
 
 #include "yAi.hpp"
@@ -466,9 +468,282 @@ static PyObject *ProcessPartial(PyObject *, PyObject *args) {
   return ref;
 }
 
+static PyObject *ProcessFrame(PyObject *, PyObject *args) {
+  if (!PyTuple_Check(args)) {
+    PyErr_SetString(PyExc_TypeError, "Expected a Tuple");
+    return nullptr;
+  }
+
+  if (PyTuple_Size(args) != 3) {
+    PyErr_SetString(PyExc_TypeError, "Expected a Tuple of size 3");
+    return nullptr;
+  }
+
+  PyObject *history = PyTuple_GetItem(args, 0);
+
+  if (!PyList_Check(history)) {
+    PyErr_SetString(PyExc_TypeError, "Expected first List[Tuple[str, str]]");
+    return nullptr;
+  }
+
+  PyObject *new_q = PyTuple_GetItem(args, 1);
+
+  if (!PyUnicode_Check(new_q)) {
+    PyErr_SetString(PyExc_TypeError, "Expected second str");
+    return nullptr;
+  }
+
+  PyObject *scope = PyTuple_GetItem(args, 2);
+
+  if (!PyDict_Check(scope) and Py_None != scope) {
+    PyErr_SetString(PyExc_TypeError, "Expected third Dict[str, str]");
+    return nullptr;
+  }
+
+  Py_ssize_t size = PyList_Size(history);
+  PyObject *last_entry = PyList_GetItem(history, size - 1);
+  PyObject *last_entry_df = PyTuple_GetItem(last_entry, 2);
+
+  const char *q_s = PyUnicode_AsUTF8(new_q);
+  if (!q_s) {
+    PyErr_SetString(PyExc_TypeError, "Error getting Q buffer");
+    return nullptr;
+  }
+
+  PyObject *new_a = nullptr;
+
+  if (std::string_view(q_s).starts_with("\\d")) {
+    PyObject *columns = PyObject_GetAttrString(last_entry_df, "columns");
+    if (!columns) {
+      PyErr_SetString(PyExc_AttributeError, "Failed to get columns attribute");
+      return nullptr;
+    }
+
+    std::string oss;
+    oss.reserve(4096);
+    oss += "<table class=\"table table-striped\"><thead><tr>"
+           "<th>Column</th>"
+           "<th>Type</th>"
+           "<th>Non-Null Count</th>"
+           "<th>Sample</th>"
+           "</tr></thead><tbody>";
+
+    PyObject *columns_iter = PyObject_GetIter(columns);
+
+    PyObject *column;
+    while ((column = PyIter_Next(columns_iter))) {
+      const char *column_name = PyUnicode_AsUTF8(column);
+      if (!column_name) {
+        PyErr_SetString(PyExc_ValueError,
+                        "Failed to get column name as UTF-8 string");
+        Py_DECREF(column);
+        return nullptr;
+      }
+
+      PyObject *column_series = PyObject_GetItem(last_entry_df, column);
+      if (!column_series) {
+        PyErr_SetString(PyExc_KeyError,
+                        "Failed to get column series from DataFrame");
+        Py_DECREF(column);
+        return nullptr;
+      }
+
+      PyObject *column_dtype = PyObject_GetAttrString(column_series, "dtype");
+      if (!column_dtype) {
+        PyErr_SetString(PyExc_AttributeError,
+                        "Failed to get dtype attribute from series");
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+      PyObject *column_dtype_str = PyObject_Str(column_dtype);
+      if (!column_dtype_str) {
+        PyErr_SetString(PyExc_TypeError, "Failed to convert dtype to string");
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+      const char *column_typename = PyUnicode_AsUTF8(column_dtype_str);
+      if (!column_typename) {
+        PyErr_SetString(PyExc_ValueError,
+                        "Failed to get dtype name as UTF-8 string");
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+
+      PyObject *column_notna =
+          PyObject_CallMethod(column_series, "notna", nullptr);
+      if (!column_notna) {
+        PyErr_SetString(PyExc_AttributeError,
+                        "Failed to call notna method on series");
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+      PyObject *column_sum = PyObject_CallMethod(column_notna, "sum", nullptr);
+      if (!column_sum) {
+        PyErr_SetString(PyExc_AttributeError,
+                        "Failed to call sum method on notna result");
+        Py_DECREF(column_notna);
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+      PyObject *column_notna_str = PyObject_Str(column_sum);
+      if (!column_notna_str) {
+        PyErr_SetString(PyExc_TypeError,
+                        "Failed to convert sum result to string");
+        Py_DECREF(column_sum);
+        Py_DECREF(column_notna);
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+      const char *column_notna_count = PyUnicode_AsUTF8(column_notna_str);
+      if (!column_notna_count) {
+        PyErr_SetString(PyExc_ValueError,
+                        "Failed to get notna count as UTF-8 string");
+        Py_DECREF(column_notna_str);
+        Py_DECREF(column_sum);
+        Py_DECREF(column_notna);
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+
+      PyObject *column_dropna =
+          PyObject_CallMethod(column_series, "dropna", nullptr);
+      if (!column_dropna) {
+        PyErr_SetString(PyExc_AttributeError,
+                        "Failed to call dropna method on series");
+        Py_DECREF(column_notna_str);
+        Py_DECREF(column_sum);
+        Py_DECREF(column_notna);
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+      PyObject *column_iloc = PyObject_GetAttrString(column_dropna, "iloc");
+      if (!column_iloc) {
+        PyErr_SetString(PyExc_AttributeError,
+                        "Failed to get iloc attribute from dropna result");
+        Py_DECREF(column_dropna);
+        Py_DECREF(column_notna_str);
+        Py_DECREF(column_sum);
+        Py_DECREF(column_notna);
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+      PyObject *column_0item =
+          PyObject_GetItem(column_iloc, PyLong_FromLong(0));
+      if (!column_0item) {
+        PyErr_SetString(PyExc_IndexError, "Failed to get first item from iloc");
+        Py_DECREF(column_iloc);
+        Py_DECREF(column_dropna);
+        Py_DECREF(column_notna_str);
+        Py_DECREF(column_sum);
+        Py_DECREF(column_notna);
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+      PyObject *column_0item_str = PyObject_Str(column_0item);
+      if (!column_0item_str) {
+        PyErr_SetString(PyExc_TypeError,
+                        "Failed to convert first item to string");
+        Py_DECREF(column_0item);
+        Py_DECREF(column_iloc);
+        Py_DECREF(column_dropna);
+        Py_DECREF(column_notna_str);
+        Py_DECREF(column_sum);
+        Py_DECREF(column_notna);
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+      const char *column_sample = PyUnicode_AsUTF8(column_0item_str);
+      if (!column_sample) {
+        PyErr_SetString(PyExc_ValueError,
+                        "Failed to get sample value as UTF-8 string");
+        Py_DECREF(column_0item_str);
+        Py_DECREF(column_0item);
+        Py_DECREF(column_iloc);
+        Py_DECREF(column_dropna);
+        Py_DECREF(column_notna_str);
+        Py_DECREF(column_sum);
+        Py_DECREF(column_notna);
+        Py_DECREF(column_dtype_str);
+        Py_DECREF(column_dtype);
+        Py_DECREF(column_series);
+        Py_DECREF(column);
+        return nullptr;
+      }
+
+      oss += "<tr><td>";
+      oss += column_name;
+      oss += "</td><td>";
+      oss += column_typename;
+      oss += "</td><td>";
+      oss += column_notna_count;
+      oss += "</td><td>";
+      oss += column_sample;
+      oss += "</td></tr>";
+
+      Py_DECREF(column_0item);
+      Py_DECREF(column_0item_str);
+      Py_DECREF(column_iloc);
+      Py_DECREF(column_dropna);
+      Py_DECREF(column_notna_str);
+      Py_DECREF(column_sum);
+      Py_DECREF(column_notna);
+      Py_DECREF(column_dtype_str);
+      Py_DECREF(column_dtype);
+      Py_DECREF(column_series);
+      Py_DECREF(column);
+    }
+
+    Py_DECREF(columns_iter);
+    Py_DECREF(columns);
+
+    oss += "</tbody></table>";
+
+    new_a = PyUnicode_FromStringAndSize(oss.data(),
+                                        static_cast<Py_ssize_t>(oss.size()));
+  } else {
+    new_a = PyUnicode_FromString("Error processing frame");
+  }
+
+  PyObject *new_history_entry = PyTuple_Pack(3, new_q, new_a, last_entry_df);
+  PyList_Append(history, new_history_entry);
+
+  return Py_None;
+}
+
 static PyMethodDef m_methods[] = {
     {"ProcessMessage", ProcessMessage, METH_VARARGS, nullptr},
     {"ProcessPartial", ProcessPartial, METH_VARARGS, nullptr},
+    {"ProcessFrame", ProcessFrame, METH_VARARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}};
 
 static struct PyModuleDef pymoduledef = {PyModuleDef_HEAD_INIT,
@@ -481,32 +756,32 @@ static struct PyModuleDef pymoduledef = {PyModuleDef_HEAD_INIT,
                                          nullptr,
                                          nullptr};
 
-inline static bool SetSInputContent() {
-  const char *input_path = std::getenv("YAI_CHAT_INPUT_PATH");
+inline static bool SetSInputContent(const char *env_name, char *&out_buffer,
+                                    std::string_view &out_content) {
+  const char *input_path = std::getenv(env_name);
   if (!input_path || input_path[0] == '\0') {
-    PyErr_SetString(PyExc_RuntimeError,
-                    "Environment variable YAI_CHAT_INPUT_PATH not set");
-    return false;
+    std::cerr << "\033[31mEnvironment variable " << env_name
+              << " not set\033[0m" << std::endl;
+    return true;
   }
 
   std::ifstream sinput(input_path);
   if (!sinput.is_open()) {
     std::ostringstream oss;
-    oss << "Error opening file specified by YAI_CHAT_INPUT_PATH: "
-        << input_path;
+    oss << "Error opening file specified by " << env_name << ": " << input_path;
     PyErr_SetString(PyExc_RuntimeError, oss.str().c_str());
     return false;
   }
 
   try {
-    auto sinput_size = std::filesystem::file_size(input_path);
-    sinput_buffer = new char[sinput_size + 1];
-    sinput.read(sinput_buffer, static_cast<std::streamsize>(sinput_size));
-    sinput_buffer[sinput_size] = '\0';
-    sinput_content = std::string_view(sinput_buffer, sinput_size);
+    auto size = std::filesystem::file_size(input_path);
+    out_buffer = new char[size + 1];
+    sinput.read(out_buffer, static_cast<std::streamsize>(size));
+    out_buffer[size] = '\0';
+    out_content = std::string_view(out_buffer, size);
   } catch (const std::bad_alloc &) {
-    delete[] sinput_buffer;
-    sinput_buffer = nullptr;
+    delete[] out_buffer;
+    out_buffer = nullptr;
     PyErr_SetString(PyExc_RuntimeError, "Failed to read sinput_content");
     sinput.close();
     return false;
@@ -521,7 +796,7 @@ PyMODINIT_FUNC PyInit_yai_chat_abi(void) {
   if (yAi::InitSettings(abi_settings))
     return nullptr;
 
-  if (!SetSInputContent())
+  if (!SetSInputContent("YAI_CHAT_INPUT_PATH", sinput_buffer, sinput_content))
     return nullptr;
 
   return PyModule_Create(&pymoduledef);

@@ -41,16 +41,13 @@ COPY . .
 
 COPY --from=builder /app/yai_chat*.so /app
 COPY --from=builder /venv /venv
-COPY --from=builder /boost_install /boost_install
+COPY --from=builder /boost_install /boost
 
 RUN . /venv/bin/activate \
     && pip install poetry \
-    && poetry config virtualenvs.create false \
-    && poetry install --without dev
-
-COPY scripts/entrypoint /entrypoint
-RUN chmod +x /entrypoint
+    && poetry config virtualenvs.create false
+RUN . /venv/bin/activate && poetry install --without dev
 
 EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint"]
+ENTRYPOINT ["/app/scripts/entrypoint"]

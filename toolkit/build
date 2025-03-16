@@ -1,0 +1,1 @@
+BOOST_ROOT=$K/Developer/homebrew/Cellar/boost/1.87.0 OPENSSL_ROOT=$K/Developer/homebrew/Cellar/openssl@3/3.4.1 ./setup.py build_ext --inplace -j8

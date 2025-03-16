@@ -12,6 +12,7 @@ django = "^5.1.7"
 gunicorn = "^23.0.0"
 uvicorn = "^0.34.0"
 markdown = "^3.7"
+pandas = "^2.2.3"
 
 
 [tool.poetry.group.dev.dependencies]

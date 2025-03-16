@@ -1,0 +1,10 @@
+.git/
+__pycache__/
+venv/
+build/
+cmake/
+*.txt
+*.yml
+*.log
+*.json
+*.sqlite3

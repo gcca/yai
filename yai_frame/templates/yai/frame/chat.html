@@ -80,35 +80,6 @@
         body: input.value,
         credentials: 'include',
         keepalive: true,
-      }).then(() => {
-        const eventSource = new EventSource('{% url "yai_frame:messaging" %}', {
-          withCredentials: true,
-        });
-
-        eventSource.onmessage = (event) => {
-          const data = event.data;
-
-          if (data == '[DONE]') {
-            eventSource.close();
-            input.disabled = false;
-            button.disabled = false;
-            spinner.style.display = 'none';
-            buttonText.style.display = 'inline';
-            input.value = '';
-          } else {
-            messages.innerHTML = data;
-            messages.scrollTop = messages.scrollHeight;
-          }
-        };
-
-        eventSource.onerror = () => {
-          input.disabled = false;
-          button.disabled = false;
-          spinner.style.display = 'none';
-          buttonText.style.display = 'inline';
-          eventSource.close();
-          alert('Failed to process message');
-        };
       }).catch(() => {
         input.disabled = false;
         button.disabled = false;
@@ -117,6 +88,37 @@
         alert('Failed to send message');
       });
     });
+
+    const eventSource = new EventSource('{% url "yai_frame:messaging" %}', {
+      withCredentials: true,
+    });
+
+    eventSource.onmessage = (event) => {
+      const data = event.data;
+
+      if (data == '[DONE]') {
+        eventSource.close();
+      } else {
+        input.disabled = false;
+        input.value = '';
+
+        button.disabled = false;
+        spinner.style.display = 'none';
+        buttonText.style.display = 'inline';
+
+        messages.innerHTML = data;
+        messages.scrollTop = messages.scrollHeight;
+      }
+    };
+
+    eventSource.onerror = () => {
+      input.disabled = false;
+      button.disabled = false;
+      spinner.style.display = 'none';
+      buttonText.style.display = 'inline';
+      eventSource.close();
+      alert('Failed to process message');
+    };
 
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
@@ -135,7 +137,7 @@
 
   <div class="position-fixed top-0 start-0 p-2 text-muted fw-bold fs-5 fs-md-6">FRAME</div>
   <div class="position-fixed top-0 end-0 p-2">
-    <a href="{% url 'yai_signin:dashboard' %}" class="text-muted text-decoration-none fs-4">
+    <a href="{% url 'yai_front:dashboard' %}" class="text-muted text-decoration-none fs-4">
       <i class="bi bi-arrow-left"></i>
     </a>
   </div>

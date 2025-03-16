@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "yai_signin",
+    "yai_front",
     "yai_daily",
     "yai_frame",
 ]
@@ -138,8 +138,8 @@ CACHES = {
     }
 }
 
-LOGIN_URL = reverse_lazy("yai_signin:index")
-LOGIN_REDIRECT_URL = reverse_lazy("yai_signin:dashboard")
+LOGIN_URL = reverse_lazy("yai_front:index")
+LOGIN_REDIRECT_URL = reverse_lazy("yai_front:dashboard")
 
 CSRF_COOKIE_NAME = "ctoken"
 CSRF_HEADER_NAME = "HTTP_X_CTOKEN"
